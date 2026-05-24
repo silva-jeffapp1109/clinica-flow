@@ -47,12 +47,12 @@ function AuthenticatedLayout() {
         <div className="flex items-center gap-2">
           <div className="text-right hidden sm:block">
             <div className="text-xs font-semibold text-foreground">
-              Olá, {profile?.full_name ?? profile?.email?.split("@")[0]}
+              Olá, {profile?.full_name ?? (profile?.email ?? user?.email)?.split("@")[0] ?? "Profissional"}
             </div>
-            <div className="text-[10px] text-muted-foreground capitalize">{role}</div>
+            <div className="text-[10px] text-muted-foreground capitalize">{role ?? "Staff"}</div>
           </div>
           <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-xs text-primary border border-border">
-            {(profile?.full_name ?? profile?.email)?.[0]?.toUpperCase()}
+            {(profile?.full_name ?? profile?.email ?? user?.email)?.[0]?.toUpperCase() ?? "P"}
           </div>
         </div>
       </header>
