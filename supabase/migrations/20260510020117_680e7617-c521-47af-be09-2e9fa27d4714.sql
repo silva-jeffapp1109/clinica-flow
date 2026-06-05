@@ -16,7 +16,7 @@ begin
       '00000000-0000-0000-0000-000000000000', admin_id, 'authenticated', 'authenticated',
       'admin@gmail.com', crypt('admin', gen_salt('bf')),
       now(), '{"provider":"email","providers":["email"]}'::jsonb,
-      jsonb_build_object('role','admin','full_name','Admin Demo'),
+      jsonb_build_object('role','admin','full_name','jeff silva'),
       now(), now(), '', '', '', ''
     );
     insert into auth.identities (id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at)

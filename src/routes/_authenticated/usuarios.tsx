@@ -158,6 +158,20 @@ function UsuariosPage() {
     }
   };
 
+  const updateName = async (userId: string, currentName: string | null) => {
+    const newName = prompt("Digite o novo nome:", currentName ?? "");
+    if (!newName || newName === currentName) return;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ full_name: newName })
+      .eq("id", userId);
+
+    if (error) return toast.error(error.message);
+    toast.success("Nome atualizado");
+    load();
+  };
+
   const updateSpecialty = async (userId: string, value: string) => {
     const { error } = await supabase
       .from("profiles")
@@ -276,7 +290,12 @@ function UsuariosPage() {
                           className="inline-block w-2 h-2 rounded-full"
                           style={{ background: sp.color }}
                         />
-                        {m.full_name ?? "—"}
+                        <span
+                          className="cursor-pointer hover:text-primary underline decoration-dotted"
+                          onClick={() => updateName(m.id, m.full_name)}
+                        >
+                          {m.full_name ?? "—"}
+                        </span>
                       </span>
                     </td>
                     <td className="px-2 py-1.5">{m.email}</td>
