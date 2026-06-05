@@ -33,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<Role | null>(null);
   const [loading, setLoading] = useState(true);
   const mountedRef = useRef(true);
+  const loadingRef = useRef(true);
 
   const loadProfile = async (uid: string) => {
     try {
@@ -51,9 +52,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     mountedRef.current = true;
+    loadingRef.current = true;
 
     // Ouve mudanças de auth — registra antes de getSession para evitar race condition
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_e, s) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_e, s) => {
       if (!mountedRef.current) return;
       setSession(s);
       setUser(s?.user ?? null);
@@ -63,21 +67,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(null);
         setRole(null);
       }
+      // Garante que o loading seja retirado após o primeiro evento de auth
+      if (loadingRef.current && mountedRef.current) {
+        loadingRef.current = false;
+        setLoading(false);
+      }
     });
 
     // Obtém sessão inicial e aguarda o perfil antes de tirar o loading
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!mountedRef.current) return;
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
-      if (data.session?.user) {
-        await loadProfile(data.session.user.id);
-      }
-      if (mountedRef.current) setLoading(false);
-    }).catch((err) => {
-      console.error("[AuthProvider] Erro ao obter sessão:", err);
-      if (mountedRef.current) setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        if (!mountedRef.current) return;
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
+        if (data.session?.user) {
+          await loadProfile(data.session.user.id);
+        }
+        // Só retira loading se o onAuthStateChange ainda não o fez
+        if (loadingRef.current && mountedRef.current) {
+          loadingRef.current = false;
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.error("[AuthProvider] Erro ao obter sessão:", err);
+        if (mountedRef.current) {
+          loadingRef.current = false;
+          setLoading(false);
+        }
+      });
 
     return () => {
       mountedRef.current = false;
@@ -86,11 +105,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value: AuthCtx = {
-    loading, user, session, profile, role,
+    loading,
+    user,
+    session,
+    profile,
+    role,
     isAdmin: role === "admin",
     signIn: async (email, password) => {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      return { error: error?.message };
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) return { error: error.message };
+        // Carrega o perfil imediatamente após o login
+        if (data?.user) {
+          await loadProfile(data.user.id);
+        }
+        return {};
+      } catch (err) {
+        return { error: String(err) };
+      }
     },
     signOut: async () => {
       await supabase.auth.signOut();
@@ -99,7 +131,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setSession(null);
     },
-    refresh: async () => { if (user) await loadProfile(user.id); },
+    refresh: async () => {
+      if (user) await loadProfile(user.id);
+    },
   };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

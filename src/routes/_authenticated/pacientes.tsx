@@ -7,7 +7,20 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Plus, Trash2, FolderPlus, Paperclip, Upload, FileText, X, Mic, Sparkles, Save, Check, ClipboardList } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  FolderPlus,
+  Paperclip,
+  Upload,
+  FileText,
+  X,
+  Mic,
+  Sparkles,
+  Save,
+  Check,
+  ClipboardList,
+} from "lucide-react";
 import { Clock, CalendarDays, LayoutGrid, Table } from "lucide-react";
 import {
   Dialog,
@@ -67,6 +80,31 @@ interface Session {
 }
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+
+interface SpeechRecognitionInstance {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onstart: () => void;
+  onresult: (event: {
+    resultIndex: number;
+    results: { [key: number]: { [key: number]: { transcript: string } } };
+  }) => void;
+  onerror: (event: unknown) => void;
+  onend: () => void;
+  start: () => void;
+  stop: () => void;
+}
+
+interface SpeechRecognitionConstructor {
+  new (): SpeechRecognitionInstance;
+}
+
+interface ExtendedWindow extends Window {
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+  activeSpeechRec?: SpeechRecognitionInstance;
+}
 
 function PacientesPage() {
   const { profile } = useAuth();
@@ -218,7 +256,8 @@ function PacientesPage() {
   };
 
   const startDictation = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const extWindow = window as unknown as ExtendedWindow;
+    const SpeechRecognition = extWindow.SpeechRecognition || extWindow.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       toast.error("Ditado por voz não suportado neste navegador. Use o Chrome ou Safari.");
       return;
@@ -234,13 +273,13 @@ function PacientesPage() {
       toast.success("Ouvindo... Fale agora.");
     };
 
-    rec.onresult = (event: any) => {
+    rec.onresult = (event) => {
       const resultIndex = event.resultIndex;
       const transcript = event.results[resultIndex][0].transcript;
       setEvoText((prev) => (prev ? prev + " " + transcript : transcript));
     };
 
-    rec.onerror = (e: any) => {
+    rec.onerror = (e) => {
       console.error(e);
       setIsDictating(false);
     };
@@ -250,12 +289,13 @@ function PacientesPage() {
     };
 
     rec.start();
-    (window as any).activeSpeechRec = rec;
+    extWindow.activeSpeechRec = rec;
   };
 
   const stopDictation = () => {
-    if ((window as any).activeSpeechRec) {
-      (window as any).activeSpeechRec.stop();
+    const extWindow = window as unknown as ExtendedWindow;
+    if (extWindow.activeSpeechRec) {
+      extWindow.activeSpeechRec.stop();
       setIsDictating(false);
       toast.info("Ditado finalizado.");
     }
@@ -273,14 +313,17 @@ function PacientesPage() {
       { from: /\bmelhorou\b/gi, to: "melhora clínica progressiva" },
       { from: /\bpiorou\b/gi, to: "exacerbação dos sintomas" },
       { from: /\balongamento\b/gi, to: "protocolo de alongamento estático e dinâmico" },
-      { from: /\bfortalecimento\b/gi, to: "cinesioterapia ativa com foco em fortalecimento segmentar" },
+      {
+        from: /\bfortalecimento\b/gi,
+        to: "cinesioterapia ativa com foco em fortalecimento segmentar",
+      },
       { from: /\bcansado\b/gi, to: "leve fadiga muscular durante a execução" },
       { from: /\bandar\b/gi, to: "treino de marcha funcional" },
       { from: /\bexercicio\b/gi, to: "exercícios terapêuticos direcionados" },
-      { from: /\bmelhora\b/gi, to: "otimização do padrão funcional" }
+      { from: /\bmelhora\b/gi, to: "otimização do padrão funcional" },
     ];
 
-    replacements.forEach(r => {
+    replacements.forEach((r) => {
       text = text.replace(r.from, r.to);
     });
 
@@ -291,7 +334,8 @@ function PacientesPage() {
   };
 
   const saveEvolution = async () => {
-    if (!evoText.trim() || !evoPatient || !profile) return toast.error("Descreva a evolução do paciente");
+    if (!evoText.trim() || !evoPatient || !profile)
+      return toast.error("Descreva a evolução do paciente");
 
     const { error } = await supabase.from("sessions").insert({
       patient_id: evoPatient.id,
@@ -509,7 +553,7 @@ function PacientesPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-border/40 pb-2.5">
         <div>
           <h1 className="text-xl font-bold text-foreground">Pacientes</h1>
@@ -522,10 +566,11 @@ function PacientesPage() {
           <div className="inline-flex rounded-lg border border-border bg-background p-0.5 shadow-xs">
             <button
               onClick={() => setViewMode("table")}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${viewMode === "table"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-                }`}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
+                viewMode === "table"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
               title="Visualização em Tabela"
             >
               <Table className="w-3.5 h-3.5" />
@@ -533,10 +578,11 @@ function PacientesPage() {
             </button>
             <button
               onClick={() => setViewMode("cards")}
-              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${viewMode === "cards"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground"
-                }`}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all ${
+                viewMode === "cards"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
               title="Visualização em Cards"
             >
               <LayoutGrid className="w-3.5 h-3.5" />
@@ -608,10 +654,11 @@ function PacientesPage() {
             <label className="flex items-center gap-2 cursor-pointer w-fit mb-4">
               <input type="file" className="hidden" onChange={uploadDoc} disabled={uploading} />
               <span
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border transition-colors ${uploading
-                  ? "bg-muted text-muted-foreground cursor-not-allowed"
-                  : "bg-primary text-primary-foreground hover:bg-primary/90"
-                  }`}
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium border transition-colors ${
+                  uploading
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-primary text-primary-foreground hover:bg-primary/90"
+                }`}
               >
                 <Upload className="w-4 h-4" />
                 {uploading ? "Enviando…" : "Enviar documento"}
@@ -698,7 +745,8 @@ function PacientesPage() {
               <Label className="mb-1 block">Hora</Label>
               <Input
                 type="time"
-                value={dlgForm.session_time}
+                step="60"
+                value={dlgForm.session_time?.substring(0, 5) || ""}
                 onChange={(e) => setDlgForm({ ...dlgForm, session_time: e.target.value })}
               />
             </div>
@@ -801,36 +849,34 @@ function PacientesPage() {
                   const isOpened = openSched === p.id;
                   return (
                     <React.Fragment key={p.id}>
-                      <tr className={`${idx % 2 === 0 ? "bg-card" : "bg-[var(--row-alt)]"} border-b border-border/20`}>
+                      <tr
+                        className={`${idx % 2 === 0 ? "bg-card" : "bg-[var(--row-alt)]"} border-b border-border/20`}
+                      >
                         <td className="px-3 py-2.5 font-medium text-muted-foreground">
                           #{idx + 101}
                         </td>
                         <td className="px-3 py-2.5">
-                          {p.cpf ? p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : "—"}
+                          {p.cpf
+                            ? p.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")
+                            : "—"}
                         </td>
                         <td className="px-3 py-2.5 font-bold text-foreground">
                           <div className="flex items-center gap-1.5">
                             <span>{p.name}</span>
                             <span className="text-[8px] bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full font-semibold">
-                              {categories.find(c => c.id === p.category_id)?.name ?? "Geral"}
+                              {categories.find((c) => c.id === p.category_id)?.name ?? "Geral"}
                             </span>
                           </div>
                           {p.pathology && (
-                            <div className="text-[9px] text-muted-foreground font-normal mt-0.5">{p.pathology}</div>
+                            <div className="text-[9px] text-muted-foreground font-normal mt-0.5">
+                              {p.pathology}
+                            </div>
                           )}
                         </td>
-                        <td className="px-3 py-2.5 text-muted-foreground">
-                          —
-                        </td>
-                        <td className="px-3 py-2.5">
-                          {p.responsible ?? "—"}
-                        </td>
-                        <td className="px-3 py-2.5 text-muted-foreground">
-                          {p.phone ?? "—"}
-                        </td>
-                        <td className="px-3 py-2.5 text-muted-foreground">
-                          —
-                        </td>
+                        <td className="px-3 py-2.5 text-muted-foreground">—</td>
+                        <td className="px-3 py-2.5">{p.responsible ?? "—"}</td>
+                        <td className="px-3 py-2.5 text-muted-foreground">{p.phone ?? "—"}</td>
+                        <td className="px-3 py-2.5 text-muted-foreground">—</td>
                         <td className="px-3 py-2.5">
                           <div className="flex items-center gap-1.5 justify-center">
                             <Button
@@ -882,7 +928,9 @@ function PacientesPage() {
                                 Controle de Horários de {p.name}
                               </h4>
                               {s.length === 0 ? (
-                                <div className="text-[10px] text-muted-foreground italic">Nenhum horário cadastrado.</div>
+                                <div className="text-[10px] text-muted-foreground italic">
+                                  Nenhum horário cadastrado.
+                                </div>
                               ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
                                   {s.map((sch) => (
@@ -898,7 +946,9 @@ function PacientesPage() {
                                             ? ` ${new Date(sch.schedule_date + "T00:00").toLocaleDateString("pt-BR")}`
                                             : ""}
                                         </span>
-                                        <span className="text-muted-foreground">{sch.schedule_time?.slice(0, 5)}</span>
+                                        <span className="text-muted-foreground">
+                                          {sch.schedule_time?.slice(0, 5)}
+                                        </span>
                                       </div>
                                       <Button
                                         variant="ghost"
@@ -918,10 +968,15 @@ function PacientesPage() {
                                 <select
                                   className="h-8 rounded-lg border border-input bg-transparent px-2 text-[11px]"
                                   value={newSched[p.id]?.weekday ?? ""}
-                                  onChange={(e) => setNewSched((prev) => ({
-                                    ...prev,
-                                    [p.id]: { ...(prev[p.id] ?? { weekday: "", date: "", time: "" }), weekday: e.target.value }
-                                  }))}
+                                  onChange={(e) =>
+                                    setNewSched((prev) => ({
+                                      ...prev,
+                                      [p.id]: {
+                                        ...(prev[p.id] ?? { weekday: "", date: "", time: "" }),
+                                        weekday: e.target.value,
+                                      },
+                                    }))
+                                  }
                                 >
                                   <option value="">Dia</option>
                                   {WEEKDAYS.map((w, i) => (
@@ -934,19 +989,30 @@ function PacientesPage() {
                                   type="date"
                                   className="h-8 text-[11px] rounded-lg"
                                   value={newSched[p.id]?.date ?? ""}
-                                  onChange={(e) => setNewSched((prev) => ({
-                                    ...prev,
-                                    [p.id]: { ...(prev[p.id] ?? { weekday: "", date: "", time: "" }), date: e.target.value }
-                                  }))}
+                                  onChange={(e) =>
+                                    setNewSched((prev) => ({
+                                      ...prev,
+                                      [p.id]: {
+                                        ...(prev[p.id] ?? { weekday: "", date: "", time: "" }),
+                                        date: e.target.value,
+                                      },
+                                    }))
+                                  }
                                 />
                                 <Input
                                   type="time"
+                                  step="60"
                                   className="h-8 text-[11px] rounded-lg"
-                                  value={newSched[p.id]?.time ?? ""}
-                                  onChange={(e) => setNewSched((prev) => ({
-                                    ...prev,
-                                    [p.id]: { ...(prev[p.id] ?? { weekday: "", date: "", time: "" }), time: e.target.value }
-                                  }))}
+                                  value={newSched[p.id]?.time?.substring(0, 5) ?? ""}
+                                  onChange={(e) =>
+                                    setNewSched((prev) => ({
+                                      ...prev,
+                                      [p.id]: {
+                                        ...(prev[p.id] ?? { weekday: "", date: "", time: "" }),
+                                        time: e.target.value,
+                                      },
+                                    }))
+                                  }
                                 />
                                 <Button
                                   onClick={() => addSchedule(p.id)}
@@ -965,7 +1031,10 @@ function PacientesPage() {
                 })}
                 {filteredPatients.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="text-center py-8 text-muted-foreground text-xs italic">
+                    <td
+                      colSpan={8}
+                      className="text-center py-8 text-muted-foreground text-xs italic"
+                    >
                       Nenhum paciente encontrado.
                     </td>
                   </tr>
@@ -1053,7 +1122,10 @@ function PacientesPage() {
                       className="h-8 text-xs"
                       value={np.pathology}
                       onChange={(e) =>
-                        setNewPatient((s) => ({ ...s, [cat.id]: { ...np, pathology: e.target.value } }))
+                        setNewPatient((s) => ({
+                          ...s,
+                          [cat.id]: { ...np, pathology: e.target.value },
+                        }))
                       }
                     />
                     <Button size="sm" onClick={() => addPatient(cat.id)}>
@@ -1069,7 +1141,12 @@ function PacientesPage() {
 
       {/* Histórico de Evoluções Modal */}
       {historyPatient && (
-        <Dialog open={!!historyPatient} onOpenChange={(open) => { if (!open) setHistoryPatient(null); }}>
+        <Dialog
+          open={!!historyPatient}
+          onOpenChange={(open) => {
+            if (!open) setHistoryPatient(null);
+          }}
+        >
           <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
             <DialogHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-2.5">
               <div>
@@ -1094,19 +1171,27 @@ function PacientesPage() {
 
             <div className="space-y-3 py-2">
               {historyLoading ? (
-                <div className="text-xs text-muted-foreground text-center py-6 animate-pulse">Carregando histórico...</div>
+                <div className="text-xs text-muted-foreground text-center py-6 animate-pulse">
+                  Carregando histórico...
+                </div>
               ) : historySessions.length === 0 ? (
                 <div className="text-xs text-muted-foreground text-center py-6">
-                  Nenhuma evolução registrada para este paciente. Clique em "Nova Evolução" para registrar a primeira!
+                  Nenhuma evolução registrada para este paciente. Clique em "Nova Evolução" para
+                  registrar a primeira!
                 </div>
               ) : (
                 <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
                   {historySessions.map((session) => (
-                    <Card key={session.id} className="p-3 border border-border/50 bg-card/40 relative">
+                    <Card
+                      key={session.id}
+                      className="p-3 border border-border/50 bg-card/40 relative"
+                    >
                       <div className="flex items-center justify-between text-[10px] text-muted-foreground font-semibold border-b border-border/40 pb-1.5 mb-1.5">
                         <div className="flex items-center gap-1.5">
                           <CalendarDays className="w-3 h-3 text-emerald-600" />
-                          <span>{new Date(session.session_date + "T00:00").toLocaleDateString("pt-BR")}</span>
+                          <span>
+                            {new Date(session.session_date + "T00:00").toLocaleDateString("pt-BR")}
+                          </span>
                           <span>·</span>
                           <span>{session.session_time?.substring(0, 5) || "—"}</span>
                         </div>
@@ -1115,7 +1200,10 @@ function PacientesPage() {
                         </div>
                       </div>
                       <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">
-                        {session.notes?.replace("[authorized:true]", "").replace("[authorized:false]", "").trim()}
+                        {session.notes
+                          ?.replace("[authorized:true]", "")
+                          .replace("[authorized:false]", "")
+                          .trim()}
                       </p>
                     </Card>
                   ))}
@@ -1124,7 +1212,11 @@ function PacientesPage() {
             </div>
 
             <DialogFooter>
-              <Button variant="outline" onClick={() => setHistoryPatient(null)} className="rounded-full text-xs">
+              <Button
+                variant="outline"
+                onClick={() => setHistoryPatient(null)}
+                className="rounded-full text-xs"
+              >
                 Fechar
               </Button>
             </DialogFooter>
@@ -1165,7 +1257,8 @@ function PacientesPage() {
                   <Label className="text-xs font-semibold mb-1 block">Hora *</Label>
                   <Input
                     type="time"
-                    value={evoTime}
+                    step="60"
+                    value={evoTime?.substring(0, 5) || ""}
                     onChange={(e) => setEvoTime(e.target.value)}
                     className="h-9 text-xs rounded-xl"
                   />
@@ -1185,10 +1278,15 @@ function PacientesPage() {
               {/* Dynamic attachments list */}
               {evoFiles.length > 0 && (
                 <div className="space-y-1.5">
-                  <div className="text-[10px] font-bold text-foreground uppercase tracking-wide">Arquivos anexados a este paciente</div>
+                  <div className="text-[10px] font-bold text-foreground uppercase tracking-wide">
+                    Arquivos anexados a este paciente
+                  </div>
                   <div className="grid grid-cols-2 gap-1.5 max-h-24 overflow-y-auto pr-1">
                     {evoFiles.map((file) => (
-                      <div key={file.name} className="flex items-center justify-between p-1.5 bg-muted/40 rounded-lg border border-border/40 text-[9px]">
+                      <div
+                        key={file.name}
+                        className="flex items-center justify-between p-1.5 bg-muted/40 rounded-lg border border-border/40 text-[9px]"
+                      >
                         <a
                           href={file.url}
                           target="_blank"
@@ -1252,11 +1350,7 @@ function PacientesPage() {
                 <label className="flex items-center gap-1.5 cursor-pointer rounded-xl border border-border/60 hover:bg-accent hover:text-accent-foreground text-xs h-9 px-3 font-semibold shrink-0">
                   <Paperclip className="w-3.5 h-3.5 text-primary" />
                   <span>Anexar</span>
-                  <input
-                    type="file"
-                    className="hidden"
-                    onChange={handleEvoUpload}
-                  />
+                  <input type="file" className="hidden" onChange={handleEvoUpload} />
                 </label>
               </div>
             </div>
@@ -1417,8 +1511,9 @@ function PatientRow({
             />
             <Input
               type="time"
+              step="60"
               className="h-7 text-[11px]"
-              value={draft.time}
+              value={draft.time?.substring(0, 5) || ""}
               onChange={(e) => setDraft({ ...draft, time: e.target.value })}
             />
             <Button onClick={onAddSchedule} size="sm" className="h-7 text-xs px-2">

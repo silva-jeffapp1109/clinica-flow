@@ -61,7 +61,11 @@ function RelatoriosPage() {
   const toggleProf = (id: string) =>
     setExpandedProfs((prev) => {
       const s = new Set(prev);
-      s.has(id) ? s.delete(id) : s.add(id);
+      if (s.has(id)) {
+        s.delete(id);
+      } else {
+        s.add(id);
+      }
       return s;
     });
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -290,7 +294,7 @@ function RelatoriosPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
           <h1 className="text-xl font-bold">Relatórios</h1>
@@ -615,7 +619,9 @@ function Stat({ label, value, accent }: { label: string; value: React.ReactNode;
       className="p-2 border-l-2 bg-card transition-all duration-200 hover:shadow-xs"
       style={{ borderLeftColor: accent }}
     >
-      <div className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">{label}</div>
+      <div className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">
+        {label}
+      </div>
       <div className="text-xs font-bold text-foreground mt-0.5">{value}</div>
     </Card>
   );

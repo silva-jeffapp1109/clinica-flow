@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Users, User, Plus, X, ChevronDown, ChevronRight, Paperclip, Check } from "lucide-react";
+import { Users, User, Plus, X, ChevronDown, ChevronRight, Paperclip, Check, CheckCircle2, XCircle, DollarSign } from "lucide-react";
 import { specialtyOf } from "@/lib/specialty";
 import {
   Select,
@@ -128,6 +128,49 @@ function serializeNotes(m: SlotMeta): string {
 
 const DAY_NAMES = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 const ROOMS = ["Sala 1", "Sala 2", "Sala 3", "Sala 4", "Sala 5", "Sala 6"];
+
+const TIME_SLOTS = [
+  { start: "07:00", end: "07:45" },
+  { start: "07:45", end: "08:30" },
+  { start: "08:30", end: "09:15" },
+  { start: "09:15", end: "10:00" },
+  { start: "10:00", end: "10:45" },
+  { start: "10:45", end: "11:30" },
+  { start: "11:30", end: "12:15" },
+  { start: "12:15", end: "13:00" },
+  { start: "13:00", end: "13:45" },
+  { start: "13:45", end: "14:30" },
+  { start: "14:30", end: "15:15" },
+  { start: "15:15", end: "16:00" },
+  { start: "16:00", end: "16:45" },
+  { start: "16:45", end: "17:30" },
+  { start: "17:30", end: "18:15" },
+  { start: "18:15", end: "19:00" },
+  { start: "19:00", end: "19:45" },
+  { start: "19:45", end: "20:30" },
+];
+
+function StatCardAgenda({
+  icon,
+  label,
+  value,
+  bgClass,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string | number;
+  bgClass: string;
+}) {
+  return (
+    <div className={`rounded-lg p-1 flex items-center gap-1 border ${bgClass}`}>
+      <div className="shrink-0">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <div className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground leading-none">{label}</div>
+        <div className="text-[9px] font-extrabold text-foreground mt-0.5 leading-none">{value}</div>
+      </div>
+    </div>
+  );
+}
 
 /* ─── Month mini-calendar ────────────────────────────────────── */
 function MiniCal({ selected, onSelect }: { selected: Date; onSelect: (d: Date) => void }) {
@@ -382,6 +425,43 @@ function EntradasPage() {
     });
   }, [weekDays, schedules, sessions, patients, profile, isSuperAdmin,
     filterResp, filterExec, filterStatus, filterRoom, filterProc, filterPatient]);
+
+  const statsSemana = useMemo(() => {
+    let presencas = 0;
+    let faltas = 0;
+    let ganhos = 0;
+
+    slotsByDay.forEach(daySlots => {
+      daySlots.forEach(slot => {
+        if (slot.status === "presence") {
+          presencas++;
+          ganhos += Number(slot.value || 0);
+        } else if (slot.status === "absent") {
+          faltas++;
+        }
+      });
+    });
+
+    const selectedDateStr = isoDate(selectedDate);
+    let presencasDiaSelecionado = 0;
+    slotsByDay.forEach((daySlots, i) => {
+      const dateStr = isoDate(weekDays[i]);
+      if (dateStr === selectedDateStr) {
+        daySlots.forEach(slot => {
+          if (slot.status === "presence") {
+            presencasDiaSelecionado++;
+          }
+        });
+      }
+    });
+
+    return {
+      presencas,
+      faltas,
+      presencasDiaSelecionado,
+      ganhos,
+    };
+  }, [slotsByDay, selectedDate, weekDays]);
 
   /* quick status button */
   const quickStatus = async (slot: Slot, newStatus: string) => {
@@ -655,91 +735,153 @@ function EntradasPage() {
       </aside>
 
       {/* ── GRADE SEMANAL ───────────────────────────────────── */}
-      <main className="flex-1 min-w-0 overflow-x-auto" style={{ height: "calc(100vh - 3.5rem)" }}>
-        <div className="flex" style={{ minWidth: 600, height: "100%" }}>
-          {weekDays.map((dayDate, i) => {
-            const dateStr = isoDate(dayDate);
-            const wdIdx = i + 1;
-            const slots = slotsByDay[i] ?? [];
-            const isToday = isoDate(new Date()) === dateStr;
+      <main className="flex-1 min-w-0 flex flex-col" style={{ height: "100%" }}>
+        {/* CARDS DE ESTATÍSTICAS NO TOPO (Compactos - 60% menores) */}
+        <div className="p-1 border-b border-border bg-card/50 grid grid-cols-4 gap-1 shrink-0">
+          <StatCardAgenda
+            icon={<CheckCircle2 className="w-3 h-3 text-emerald-600" />}
+            label="Presenças"
+            value={statsSemana.presencas}
+            bgClass="bg-emerald-500/5 border-emerald-500/10"
+          />
+          <StatCardAgenda
+            icon={<XCircle className="w-3 h-3 text-destructive" />}
+            label="Faltas"
+            value={statsSemana.faltas}
+            bgClass="bg-destructive/5 border-destructive/10"
+          />
+          <StatCardAgenda
+            icon={<Check className="w-3 h-3 text-primary" />}
+            label="Presença Hoje"
+            value={statsSemana.presencasDiaSelecionado}
+            bgClass="bg-primary/5 border-primary/10"
+          />
+          <StatCardAgenda
+            icon={<DollarSign className="w-3 h-3 text-amber-600" />}
+            label="Ganhos Totais"
+            value={statsSemana.ganhos.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+            bgClass="bg-amber-500/5 border-amber-500/10"
+          />
+        </div>
 
-            return (
-              <div
-                key={wdIdx}
-                className={`flex-1 min-w-0 border-r border-border flex flex-col ${isToday ? "bg-primary/5" : "bg-background"}`}
-                style={{ height: "100%" }}
-              >
-                {/* Cabeçalho do dia */}
+        {/* CONTAINER DA GRADE COM OVERFLOW VERTICAL E HORIZONTAL */}
+        <div className="flex-1 min-w-0 overflow-auto">
+          <div className="flex" style={{ minWidth: 720 }}>
+            {/* Coluna de horários */}
+            <div className="w-12 shrink-0 flex flex-col border-r border-border bg-muted/20 select-none">
+              <div className="shrink-0 border-b border-border bg-card sticky top-0 z-10" style={{ height: 32 }} />
+              {TIME_SLOTS.map((t) => (
                 <div
-                  className={`px-1 py-0.5 border-b border-border text-center shrink-0 ${isToday ? "bg-primary text-primary-foreground" : "bg-card text-foreground"}`}
+                  key={t.start}
+                  className="h-[42px] flex items-center justify-center border-b border-border/30 text-[9px] text-muted-foreground font-mono"
                 >
-                  <div className="text-[9px] font-bold uppercase tracking-wide leading-tight">{DAY_NAMES[i]}</div>
-                  <div className="text-[10px] font-semibold leading-tight">{shortDate(dayDate)}</div>
+                  {t.start}
                 </div>
+              ))}
+            </div>
 
-                {/* Slots */}
-                <div className="flex flex-col gap-0.5 p-0.5 overflow-y-auto" style={{ flex: 1 }}>
-                  {slots.map((slot) => {
-                    const sp = execSpec(slot);
-                    const respName = profById.get(slot.meta.responsibleId)?.full_name?.split(" ")[0] ?? (slot.meta.responsibleId ? slot.meta.responsibleId.slice(0, 6) : "—");
-                    const execName = profById.get(slot.meta.executorId)?.full_name?.split(" ")[0] ?? (slot.meta.executorId ? slot.meta.executorId.slice(0, 6) : "—");
+            {/* Dias da semana */}
+            {weekDays.map((dayDate, i) => {
+              const dateStr = isoDate(dayDate);
+              const wdIdx = i + 1;
+              const slots = slotsByDay[i] ?? [];
+              const isToday = isoDate(new Date()) === dateStr;
 
-                    return (
-                      <div
-                        key={slot.key}
-                        className={`relative group rounded border border-border/40 px-1 pt-0.5 pb-1 cursor-pointer transition-shadow hover:shadow-sm ${cardStyle(slot)}`}
-                        onClick={(e) => handleSlotClick(slot, e)}
-                      >
-                        {/* Horário + badge autorizado */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-[9px] font-bold text-foreground/80 leading-tight">{slot.time}</span>
-                          {slot.meta.authorized && (
-                            <span className="text-[7px] bg-teal-600 text-white px-0.5 rounded font-bold leading-none">Aut.</span>
+              return (
+                <div
+                  key={wdIdx}
+                  className={`flex-1 min-w-0 border-r border-border flex flex-col ${isToday ? "bg-primary/5" : "bg-background"}`}
+                >
+                  {/* Cabeçalho compacto do dia - sticky no topo da rolagem */}
+                  <div
+                    className={`shrink-0 border-b border-border text-center sticky top-0 z-10 ${isToday ? "bg-primary text-primary-foreground font-bold" : "bg-card text-foreground"}`}
+                    style={{ height: 32, display: "flex", flexDirection: "column", alignItems: "center", justifyItems: "center", justifyContent: "center" }}
+                  >
+                    <div className="text-[8px] font-bold uppercase tracking-wide leading-none">{DAY_NAMES[i]}</div>
+                    <div className="text-[9px] font-semibold leading-none mt-0.5">{shortDate(dayDate)}</div>
+                  </div>
+
+                  {/* Grid de slots do dia */}
+                  <div className="flex flex-col">
+                    {TIME_SLOTS.map((t) => {
+                      const slotMatches = slots.filter(
+                        (s) => s.time.slice(0, 5) === t.start
+                      );
+
+                      return (
+                        <div
+                          key={t.start}
+                          className="h-[42px] border-b border-border/20 p-0.5 relative group"
+                        >
+                          {slotMatches.length > 0 ? (
+                            <div className="flex gap-0.5 h-full w-full">
+                              {slotMatches.map((slot) => {
+                                const sp = execSpec(slot);
+                                const respName = profById.get(slot.meta.responsibleId)?.full_name?.split(" ")[0] ?? (slot.meta.responsibleId ? slot.meta.responsibleId.slice(0, 6) : "—");
+                                const execName = profById.get(slot.meta.executorId)?.full_name?.split(" ")[0] ?? (slot.meta.executorId ? slot.meta.executorId.slice(0, 6) : "—");
+
+                                return (
+                                  <div
+                                    key={slot.key}
+                                    className={`flex-1 min-w-0 rounded border border-border/40 px-1 py-0.5 cursor-pointer transition-all hover:shadow-xs flex flex-col justify-between ${cardStyle(slot)}`}
+                                    onClick={(e) => handleSlotClick(slot, e)}
+                                  >
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span className="text-[8px] font-bold text-foreground/80 leading-none truncate">{slot.time}</span>
+                                      {slot.meta.authorized && (
+                                        <span className="text-[7px] bg-teal-600 text-white px-0.5 rounded font-bold leading-none shrink-0 scale-90">Aut.</span>
+                                      )}
+                                    </div>
+                                    <div className="text-[9px] font-extrabold truncate leading-none" style={{ color: sp.color }}>
+                                      {slot.patient.name}
+                                    </div>
+                                    <div className="flex items-center justify-between text-[7px] text-foreground/50 leading-none">
+                                      <span className="truncate">R: {respName}</span>
+                                      <span className="truncate">E: {execName}</span>
+                                    </div>
+
+                                    {/* Botão editar (admin only) */}
+                                    {isSuperAdmin && (
+                                      <button
+                                        className="absolute right-1 top-1 w-3.5 h-3.5 rounded-full bg-white/80 border border-border/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-primary-foreground hover:border-transparent shadow-xs"
+                                        onClick={(e) => { e.stopPropagation(); openEdit(slot); }}
+                                        title="Editar agendamento"
+                                      >
+                                        <Plus className="w-2 h-2" />
+                                      </button>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            isSuperAdmin && (
+                              <button
+                                className="w-full h-full rounded border border-dashed border-border/20 flex items-center justify-center text-[8px] text-muted-foreground/40 hover:border-primary/50 hover:text-primary opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                                onClick={() => {
+                                  setModalSlot(null);
+                                  setModalDay({ weekday: wdIdx, dateStr });
+                                  setForm({
+                                    patientId: patients[0]?.id || "", weekday: wdIdx, dateStr, isRecurrent: true,
+                                    startTime: t.start, endTime: t.end,
+                                    responsibleId: profile?.id || "", executorId: profile?.id || "",
+                                    room: "Sala 1", procedure: "", value: 0, status: "pending", authorized: false, text: "",
+                                  });
+                                  setModalOpen(true);
+                                }}
+                              >
+                                <Plus className="w-2 h-2 mr-0.5" /> novo {t.start}
+                              </button>
+                            )
                           )}
                         </div>
-
-                        {/* Responsável */}
-                        <div className="flex items-center gap-0.5 text-[8px] text-foreground/55 leading-tight">
-                          <User className="w-2 h-2 shrink-0" />
-                          <span className="truncate">Resp: <span className="font-medium text-foreground/70">{respName}</span></span>
-                        </div>
-
-                        {/* Executor */}
-                        <div className="flex items-center gap-0.5 text-[8px] text-foreground/55 leading-tight">
-                          <User className="w-2 h-2 shrink-0" />
-                          <span className="truncate">Exec: <span className="font-medium text-foreground/70">{execName}</span></span>
-                        </div>
-
-                        {/* Nome do paciente */}
-                        <div className="text-[9px] font-bold text-foreground truncate leading-tight">{slot.patient.name}</div>
-
-                        {/* Botão + (adicionar) apenas para admin */}
-                        {isSuperAdmin && (
-                          <button
-                            className="absolute right-0.5 top-0.5 w-4 h-4 rounded-full bg-white/70 border border-border/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-primary-foreground hover:border-transparent shadow"
-                            onClick={(e) => { e.stopPropagation(); openEdit(slot); }}
-                            title="Editar agendamento"
-                          >
-                            <Plus className="w-2.5 h-2.5" />
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  {/* Botão adicionar novo slot na coluna */}
-                  {isSuperAdmin && (
-                    <button
-                      className="mt-0.5 w-full flex items-center justify-center gap-0.5 text-[9px] text-muted-foreground border border-dashed border-border/40 rounded py-0.5 hover:border-primary hover:text-primary transition-colors"
-                      onClick={() => openNew(wdIdx, dateStr)}
-                    >
-                      <Plus className="w-2.5 h-2.5" /> novo
-                    </button>
-                  )}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </main>
 

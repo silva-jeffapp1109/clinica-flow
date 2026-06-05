@@ -18,6 +18,19 @@ export const Route = createFileRoute("/_authenticated/home")({
   component: HomePage,
 });
 
+interface ProfileItem {
+  id: string;
+  specialty: string | null;
+  full_name: string | null;
+  email: string;
+}
+
+interface SessionItem {
+  status: string;
+  value: number;
+  created_by: string;
+}
+
 function HomePage() {
   const { profile, isAdmin } = useAuth();
   const today = new Date().toISOString().slice(0, 10);
@@ -43,9 +56,11 @@ function HomePage() {
             .lte("session_date", today),
           supabase.from("profiles").select("id,specialty,full_name,email"),
         ]);
-      const presences = sess?.filter((s) => s.status === "presence").length ?? 0;
-      const absences = sess?.filter((s) => s.status === "absent").length ?? 0;
-      const total = (sess ?? []).reduce(
+      const presences =
+        (sess as SessionItem[] | null)?.filter((s) => s.status === "presence").length ?? 0;
+      const absences =
+        (sess as SessionItem[] | null)?.filter((s) => s.status === "absent").length ?? 0;
+      const total = ((sess as SessionItem[]) ?? []).reduce(
         (a, s) => a + (s.status === "presence" ? Number(s.value) : 0),
         0,
       );
@@ -53,13 +68,17 @@ function HomePage() {
 
       const profMap = new Map<string, string | null>();
       const profNameMap = new Map<string, string>();
-      (profs ?? []).forEach((p: any) => {
+      ((profs as ProfileItem[]) ?? []).forEach((p) => {
         profMap.set(p.id, p.specialty);
-        const name = p.full_name ? p.full_name.split(" ")[0] : (p.email ? p.email.split("@")[0] : "Prof");
+        const name = p.full_name
+          ? p.full_name.split(" ")[0]
+          : p.email
+            ? p.email.split("@")[0]
+            : "Prof";
         profNameMap.set(p.id, name);
       });
       const m = new Map<string, { presence: number; total: number; profs: Set<string> }>();
-      (monthSess ?? []).forEach((s: any) => {
+      ((monthSess as SessionItem[]) ?? []).forEach((s) => {
         const sp = profMap.get(s.created_by) ?? "outro";
         const cur = m.get(sp) ?? { presence: 0, total: 0, profs: new Set<string>() };
         if (s.status === "presence") {
@@ -79,11 +98,13 @@ function HomePage() {
       );
 
       if (profile) {
-        const mine = (monthSess ?? []).filter((s: any) => s.created_by === profile.id);
-        const mp = mine.filter((s: any) => s.status === "presence").length;
-        const ma = mine.filter((s: any) => s.status === "absent").length;
+        const mine = ((monthSess as SessionItem[]) ?? []).filter(
+          (s) => s.created_by === profile.id,
+        );
+        const mp = mine.filter((s) => s.status === "presence").length;
+        const ma = mine.filter((s) => s.status === "absent").length;
         const mt = mine.reduce(
-          (a: number, s: any) => a + (s.status === "presence" ? Number(s.value || 0) : 0),
+          (a: number, s) => a + (s.status === "presence" ? Number(s.value || 0) : 0),
           0,
         );
         setMeMonth({ presence: mp, absent: ma, total: mt });
@@ -94,7 +115,7 @@ function HomePage() {
   const mySpec = specialtyOf(profile?.specialty);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2">
@@ -102,7 +123,7 @@ function HomePage() {
               className="inline-block w-2.5 h-2.5 rounded-full"
               style={{ background: mySpec.color }}
             />
-            Olá, {profile?.full_name?.split(" ")[0] ?? "bem-vindo"}
+            Olá, {profile?.full_name || profile?.email?.split("@")[0] || "bem-vindo"}
           </h1>
           <p className="text-xs text-muted-foreground">
             {mySpec.label} ·{" "}
@@ -120,32 +141,33 @@ function HomePage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+      {/* Cards de Estatísticas - 60% menores */}
+      <div className="grid grid-cols-4 gap-1">
         <StatCard
           to="/pacientes"
-          icon={<Users className="w-4 h-4" />}
-          label="Pacientes Cadastrados"
+          icon={<Users className="w-3 h-3" />}
+          label="Pacientes"
           value={stats.patients}
           tone="primary"
         />
         <StatCard
           to="/entradas"
-          icon={<CheckCircle2 className="w-4 h-4" />}
-          label="Presenças no Dia"
+          icon={<CheckCircle2 className="w-3 h-3" />}
+          label="Presenças"
           value={stats.presences}
           tone="success"
         />
         <StatCard
           to="/entradas"
-          icon={<XCircle className="w-4 h-4" />}
-          label="Faltas no Dia"
+          icon={<XCircle className="w-3 h-3" />}
+          label="Faltas"
           value={stats.absences}
           tone="destructive"
         />
         <StatCard
           to="/entradas"
-          icon={<DollarSign className="w-4 h-4" />}
-          label="Faturamento do Dia"
+          icon={<DollarSign className="w-3 h-3" />}
+          label="Faturamento"
           value={stats.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
           tone="warning"
         />
@@ -274,7 +296,9 @@ function SpecCard({
       className="bg-card border border-border/50 rounded-xl p-2 border-l-2 transition-all duration-200 hover:shadow-xs hover:border-l-[3px]"
       style={{ borderLeftColor: accent }}
     >
-      <div className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">{label}</div>
+      <div className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">
+        {label}
+      </div>
       <div className="text-xs font-bold text-foreground mt-0.5">{value}</div>
     </div>
   );
@@ -301,16 +325,16 @@ function StatCard({
   };
   const inner = (
     <>
-      <div className={`rounded-lg p-1 shrink-0 ${tones[tone]}`}>{icon}</div>
+      <div className={`rounded p-0.5 shrink-0 ${tones[tone]}`}>{icon}</div>
       <div className="min-w-0 flex-1">
-        <div className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider truncate mb-0.5">
+        <div className="text-[7px] font-medium text-muted-foreground uppercase tracking-wider truncate">
           {label}
         </div>
-        <div className="text-xs font-bold text-foreground truncate">{value}</div>
+        <div className="text-[9px] font-bold text-foreground truncate">{value}</div>
       </div>
     </>
   );
-  const cls = `bg-card border border-border/50 rounded-xl p-2 gap-2 flex items-center hover:border-primary/30 hover:shadow-sm hover:scale-[1.01] transition-all duration-200 cursor-pointer h-full`;
+  const cls = `bg-card border border-border/50 rounded-lg px-1 py-0.5 gap-1 flex items-center hover:border-primary/30 hover:shadow-sm hover:scale-[1.01] transition-all duration-200 cursor-pointer h-full`;
   if (to)
     return (
       <Link to={to} className={cls}>
@@ -340,7 +364,9 @@ function ActionCard({
         {icon}
       </div>
       <div className="min-w-0">
-        <div className="font-semibold text-[11px] text-foreground group-hover:text-primary transition-colors truncate">{title}</div>
+        <div className="font-semibold text-[11px] text-foreground group-hover:text-primary transition-colors truncate">
+          {title}
+        </div>
         <div className="text-[9px] text-muted-foreground truncate mt-0.5">{desc}</div>
       </div>
     </Link>

@@ -40,18 +40,26 @@ function AuthenticatedLayout() {
 
         {/* Indicador Central */}
         <div className="flex flex-col items-center">
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Prestador</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+            Prestador
+          </span>
         </div>
 
         {/* Nome do Profissional no Topo Direito */}
         <div className="flex items-center gap-2">
           <div className="text-right hidden sm:block">
             <div className="text-xs font-semibold text-foreground">
-              Olá, {profile?.full_name ?? (profile?.email ?? user?.email)?.split("@")[0] ?? "Profissional"}
+              Olá,{" "}
+              {profile?.full_name ||
+                (profile?.email ? profile.email.split("@")[0] : null) ||
+                (user?.email ? user.email.split("@")[0] : null) ||
+                "Profissional"}
             </div>
-            <div className="text-[10px] text-muted-foreground capitalize">{role ?? "Staff"}</div>
+            <div className="text-[10px] text-muted-foreground capitalize">
+              {profile?.specialty || role || "Profissional"}
+            </div>
           </div>
-          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-xs text-primary border border-border">
+          <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center font-bold text-xs text-primary border border-border" title={profile?.email ?? user?.email ?? ""}>
             {(profile?.full_name ?? profile?.email ?? user?.email)?.[0]?.toUpperCase() ?? "P"}
           </div>
         </div>
@@ -79,7 +87,7 @@ function AuthenticatedLayout() {
             </Button>
           </div>
         </aside>
-        <main className="flex-1 min-w-0 overflow-hidden">
+        <main className="flex-1 min-w-0 overflow-auto">
           <Outlet />
         </main>
       </div>

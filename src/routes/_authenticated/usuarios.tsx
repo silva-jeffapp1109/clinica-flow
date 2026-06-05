@@ -39,55 +39,129 @@ function UsuariosPage() {
   const [specialty, setSpecialty] = useState<string>("outro");
   const [submitting, setSubmitting] = useState(false);
 
-  if (!isAdmin) return <Navigate to="/entradas" />;
-
   const load = async () => {
     const { data: profs } = await supabase.from("profiles").select("*");
     const { data: roles } = await supabase.from("user_roles").select("*");
     const map = new Map<string, string>();
-    (roles ?? []).forEach((r: any) => map.set(r.user_id, r.role));
-    setMembers(((profs as any[]) ?? []).map((p) => ({ ...p, role: map.get(p.id) })));
+    ((roles as { user_id: string; role: string }[]) ?? []).forEach((r) =>
+      map.set(r.user_id, r.role),
+    );
+    setMembers(
+      (
+        (profs as {
+          id: string;
+          email: string;
+          full_name: string | null;
+          specialty: string | null;
+        }[]) ?? []
+      ).map((p) => ({ ...p, role: map.get(p.id) })),
+    );
   };
+
   useEffect(() => {
     load();
   }, []);
 
+  if (!isAdmin) return <Navigate to="/entradas" />;
+
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!profile) return;
-    setSubmitting(true);
-    // Use signUp with metadata; session will switch — so we restore after.
-    const currentSession = (await supabase.auth.getSession()).data.session;
-    const { data: signed, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { role, full_name: fullName, owner_id: profile.owner_id } },
-    });
-    setSubmitting(false);
-    if (error) return toast.error(error.message);
-    // Set specialty on the freshly created profile
-    const newId = signed?.user?.id;
-    if (newId) {
-      await supabase
-        .from("profiles")
-        .update({ specialty: specialty as any })
-        .eq("id", newId);
+
+    // Validações locais
+    if (password.length < 6) {
+      toast.error("A senha deve ter no mínimo 6 caracteres.");
+      return;
     }
-    // Restore admin session
-    if (currentSession) await supabase.auth.setSession(currentSession);
-    toast.success("Usuário criado");
-    setEmail("");
-    setPassword("");
-    setFullName("");
-    setRole("staff");
-    setSpecialty("outro");
-    load();
+
+    setSubmitting(true);
+
+    try {
+      // Salva a sessão atual do admin ANTES de qualquer operação
+      const { data: sessionData } = await supabase.auth.getSession();
+      const currentSession = sessionData.session;
+
+      if (!currentSession) {
+        toast.error("Sessão expirada. Faça login novamente.");
+        setSubmitting(false);
+        return;
+      }
+
+      const savedAccessToken = currentSession.access_token;
+      const savedRefreshToken = currentSession.refresh_token;
+
+      // Cria o novo usuário via signUp
+      const { data: signed, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            role,
+            full_name: fullName,
+            owner_id: profile.owner_id,
+          },
+        },
+      });
+
+      if (error) {
+        // Restaura sessão do admin em caso de erro
+        await supabase.auth.setSession({
+          access_token: savedAccessToken,
+          refresh_token: savedRefreshToken,
+        });
+        toast.error(`Erro ao criar usuário: ${error.message}`);
+        setSubmitting(false);
+        return;
+      }
+
+      const newId = signed?.user?.id;
+
+      // Restaura a sessão do admin IMEDIATAMENTE (antes de qualquer outra operação)
+      await supabase.auth.setSession({
+        access_token: savedAccessToken,
+        refresh_token: savedRefreshToken,
+      });
+
+      // Agora com a sessão do admin restaurada, atualiza o perfil e role do novo usuário
+      if (newId) {
+        const { error: specError } = await supabase
+          .from("profiles")
+          .update({ specialty: specialty as never })
+          .eq("id", newId);
+
+        if (specError) {
+          console.warn("Erro ao definir especialidade:", specError.message);
+        }
+
+        const { error: roleError } = await supabase
+          .from("user_roles")
+          .insert({ user_id: newId, role: role as "admin" | "staff" });
+
+        if (roleError) {
+          console.warn("Erro ao definir função:", roleError.message);
+          toast.warning("Usuário criado, mas houve erro ao definir a função. Verifique manualmente.");
+        }
+      }
+
+      toast.success(`Usuário "${fullName}" criado com sucesso!`);
+      setEmail("");
+      setPassword("");
+      setFullName("");
+      setRole("staff");
+      setSpecialty("outro");
+      load();
+    } catch (err) {
+      console.error("Erro inesperado ao criar usuário:", err);
+      toast.error("Erro inesperado. Tente novamente.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const updateSpecialty = async (userId: string, value: string) => {
     const { error } = await supabase
       .from("profiles")
-      .update({ specialty: value as any })
+      .update({ specialty: value as never })
       .eq("id", userId);
     if (error) return toast.error(error.message);
     toast.success("Especialidade atualizada");
@@ -95,7 +169,7 @@ function UsuariosPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
       <div>
         <h1 className="text-xl font-bold">Usuários</h1>
         <p className="text-muted-foreground text-xs">
@@ -134,7 +208,7 @@ function UsuariosPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={4}
+              minLength={6}
               className="h-8 text-xs"
             />
           </div>
