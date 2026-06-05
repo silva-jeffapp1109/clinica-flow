@@ -293,13 +293,13 @@ function SpecCard({
 }) {
   return (
     <div
-      className="bg-card border border-border/50 rounded-xl p-2 border-l-2 transition-all duration-200 hover:shadow-xs hover:border-l-[3px]"
+      className="bg-card border border-border/50 rounded-xl p-3 border-l-2 transition-all duration-200 hover:shadow-xs hover:border-l-[3px]"
       style={{ borderLeftColor: accent }}
     >
-      <div className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">
+      <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
         {label}
       </div>
-      <div className="text-xs font-bold text-foreground mt-0.5">{value}</div>
+      <div className="text-sm font-bold text-foreground mt-1">{value}</div>
     </div>
   );
 }
@@ -327,14 +327,14 @@ function StatCard({
     <>
       <div className={`rounded p-0.5 shrink-0 ${tones[tone]}`}>{icon}</div>
       <div className="min-w-0 flex-1">
-        <div className="text-[7px] font-medium text-muted-foreground uppercase tracking-wider truncate">
+        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wider truncate">
           {label}
         </div>
-        <div className="text-[9px] font-bold text-foreground truncate">{value}</div>
+        <div className="text-sm font-bold text-foreground truncate">{value}</div>
       </div>
     </>
   );
-  const cls = `bg-card border border-border/50 rounded-lg px-1 py-0.5 gap-1 flex items-center hover:border-primary/30 hover:shadow-sm hover:scale-[1.01] transition-all duration-200 cursor-pointer h-full`;
+  const cls = `bg-card border border-border/50 rounded-lg px-2 py-2 gap-1 flex items-center hover:border-primary/30 hover:shadow-sm hover:scale-[1.01] transition-all duration-200 cursor-pointer h-full`;
   if (to)
     return (
       <Link to={to} className={cls}>
