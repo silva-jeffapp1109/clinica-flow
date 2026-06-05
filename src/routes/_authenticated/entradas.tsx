@@ -162,11 +162,11 @@ function StatCardAgenda({
   bgClass: string;
 }) {
   return (
-    <div className={`rounded-lg p-1 flex items-center gap-1 border ${bgClass}`}>
+    <div className={`rounded-lg p-2 flex items-center gap-2 border ${bgClass}`}>
       <div className="shrink-0">{icon}</div>
       <div className="min-w-0 flex-1">
-        <div className="text-[7px] font-bold uppercase tracking-wider text-muted-foreground leading-none">{label}</div>
-        <div className="text-[9px] font-extrabold text-foreground mt-0.5 leading-none">{value}</div>
+        <div className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground leading-none">{label}</div>
+        <div className="text-[11px] font-extrabold text-foreground mt-0.5 leading-none">{value}</div>
       </div>
     </div>
   );
