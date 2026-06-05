@@ -54,6 +54,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mountedRef.current = true;
     loadingRef.current = true;
 
+    // Timeout de segurança para evitar tela de loading infinita
+    const timeout = setTimeout(() => {
+      if (loadingRef.current && mountedRef.current) {
+        console.warn("[AuthProvider] Timeout ao carregar auth. Forçando loading=false");
+        loadingRef.current = false;
+        setLoading(false);
+      }
+    }, 10000);
+
     // Ouve mudanças de auth — registra antes de getSession para evitar race condition
     const {
       data: { subscription },
@@ -100,6 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mountedRef.current = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, []);
